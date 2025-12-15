@@ -6,6 +6,7 @@
 
 ## TO DO
 """
+- Import traffic vehicles
 """
 
 
@@ -13,7 +14,7 @@ bl_info = {
     "name": "Import Need for Speed High Stakes 1999 PS1 models format (.geo)",
     "description": "Import meshes files from Need for Speed High Stakes 1999 PS1",
     "author": "PolySoupList",
-    "version": (0, 0, 2),
+    "version": (0, 0, 3),
     "blender": (3, 6, 23),
     "location": "File > Import > Need for Speed High Stakes 1999 PS1 (.geo)",
     "warning": "",
@@ -47,9 +48,19 @@ import struct
 from pathlib import Path
 
 
-def main(context, file_path):
-	## INITIALIZING
+def main(context, file_path, clear_scene):
+	if bpy.ops.object.mode_set.poll():
+		bpy.ops.object.mode_set(mode='OBJECT')
+	
+	if clear_scene == True:
+		print("Clearing scene...")
+		clearScene(context)
+	
 	start_time = time.time()
+	
+	main_collection_name = os.path.basename(file_path)
+	main_collection = bpy.data.collections.new(main_collection_name)
+	bpy.context.scene.collection.children.link(main_collection)
 	
 	print("Importing file %s" % os.path.basename(file_path))
 	
@@ -76,7 +87,7 @@ def main(context, file_path):
 			#print(f"numFacet: {numFacet}")
 			
 			translation = struct.unpack('<iii', f.read(12))
-			translation = [translation[0]/0x7FFF, -translation[2]/0x7FFF, translation[1]/0x7FFF]
+			translation = [-translation[0]/0x7FFF, -translation[2]/0x7FFF, translation[1]/0x7FFF]
 			#print(f"translation: {translation}")
 			
 			if partIdx == 39:
@@ -88,7 +99,7 @@ def main(context, file_path):
 			
 			for i in range (numVertex):
 				vertex = struct.unpack('<hhh', f.read(6))
-				vertex = [vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
+				vertex = [-vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
 				vertices.append ((vertex[0], vertex[1], vertex[2]))
 				#print(f"vertex: {vertex[0], vertex[1], vertex[2]}")
 			if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
@@ -98,7 +109,7 @@ def main(context, file_path):
 				has_some_normal_data = True
 				for i in range (numVertex):
 					Nvertex = struct.unpack('<hhh', f.read(6))
-					Nvertex = [Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
+					Nvertex = [-Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
 					normal_data.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
 					#print(f"Nvertex: {Nvertex[0], Nvertex[1], Nvertex[2]}")
 				if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
@@ -121,7 +132,7 @@ def main(context, file_path):
 				uv2 = [uv2[0]/0xFF, uv2[1]/0xFF]
 				#print(f"uv: {uv0, uv1, uv2}")
 			
-				faces.append((vertexId0, vertexId1, vertexId2))
+				faces.append((vertexId2, vertexId1, vertexId0))
 				loop_uvs.extend([uv0, uv1, uv2])
 				face_material_indices.append(textureIndex)
 				used_texture_ids.add(textureIndex)
@@ -176,7 +187,8 @@ def main(context, file_path):
 				obj = bpy.data.objects.new(geoPartName, me_ob)
 				
 				# Link to scene
-				bpy.context.collection.objects.link(obj)
+				#bpy.context.collection.objects.link(obj)
+				main_collection.objects.link(obj)
 				bpy.context.view_layer.objects.active = obj
 				
 				#empty = bpy.data.objects.new(name="Empty", object_data=None)
@@ -317,8 +329,52 @@ def get_geoPartNames(partIdx):
     return geoPartNames[partIdx]
 
 
+def clearScene(context): # OK
+	#for obj in bpy.context.scene.objects:
+	#	obj.select_set(True)
+	#bpy.ops.object.delete()
+
+	for block in bpy.data.objects:
+		#if block.users == 0:
+		bpy.data.objects.remove(block, do_unlink = True)
+
+	for block in bpy.data.meshes:
+		if block.users == 0:
+			bpy.data.meshes.remove(block)
+
+	for block in bpy.data.materials:
+		if block.users == 0:
+			bpy.data.materials.remove(block)
+
+	for block in bpy.data.textures:
+		if block.users == 0:
+			bpy.data.textures.remove(block)
+
+	for block in bpy.data.images:
+		if block.users == 0:
+			bpy.data.images.remove(block)
+	
+	for block in bpy.data.cameras:
+		if block.users == 0:
+			bpy.data.cameras.remove(block)
+	
+	for block in bpy.data.lights:
+		if block.users == 0:
+			bpy.data.lights.remove(block)
+	
+	for block in bpy.data.armatures:
+		if block.users == 0:
+			bpy.data.armatures.remove(block)
+	
+	for block in bpy.data.collections:
+		if block.users == 0:
+			bpy.data.collections.remove(block)
+		else:
+			bpy.data.collections.remove(block, do_unlink=True)
+
+
 class ImportNFSHSPS1(Operator, ImportHelper):
-	"""Load a Need for Speed High Stakes 1999 PS1 model file"""
+	"""Load a Need for Speed High Stakes (1999) PS1 model file"""
 	bl_idname = "import_nfshsps1.data"  # important since its how bpy.ops.import_test.some_data is constructed
 	bl_label = "Import models"
 	bl_options = {'PRESET'}
@@ -341,6 +397,15 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 			subtype='DIR_PATH',
 			)
 	
+	# List of operator properties, the attributes will be assigned
+	# to the class instance from the operator settings before calling.
+	
+	clear_scene: BoolProperty(
+			name="Clear scene",
+			description="Check in order to clear the scene",
+			default=True,
+			)
+	
 	def execute(self, context): # OK		
 		if len(self.files) > 1:
 			os.system('cls')
@@ -352,7 +417,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 			print("Importing %d files" % len(files_path))
 			
 			for file_path in files_path:
-				status = main(context, file_path)
+				status = main(context, file_path, self.clear_scene)
 				
 				if status == {"CANCELLED"}:
 					self.report({"ERROR"}, "Importing of file %s has been cancelled. Check the system console for information." % os.path.splitext(os.path.basename(file_path))[0])
@@ -371,7 +436,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 				print("Importing %d files" % len(files_path))
 			
 			for file_path in files_path:
-				status = main(context, file_path)
+				status = main(context, file_path, self.clear_scene)
 				
 				if status == {"CANCELLED"}:
 					self.report({"ERROR"}, "Importing of file %s has been cancelled. Check the system console for information." % os.path.splitext(os.path.basename(file_path))[0])
@@ -382,7 +447,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 		else:
 			os.system('cls')
 			
-			status = main(context, self.filepath)
+			status = main(context, self.filepath, self.clear_scene)
 			
 			if status == {"CANCELLED"}:
 				self.report({"ERROR"}, "Importing has been cancelled. Check the system console for information.")
@@ -396,6 +461,15 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 		
 		sfile = context.space_data
 		operator = sfile.active_operator
+		
+		##
+		box = layout.box()
+		split = box.split(factor=0.75)
+		col = split.column(align=True)
+		col.label(text="Preferences", icon="OPTIONS")
+		
+		box.prop(operator, "clear_scene")
+
 
 def menu_func_import(self, context):
 	pcoll = preview_collections["main"]
