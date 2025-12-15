@@ -6,7 +6,6 @@
 
 ## TO DO
 """
-- Fix material assignment
 """
 
 
@@ -151,23 +150,28 @@ def main(context, file_path):
 				tex_id_to_mat_index = {tex_id: idx for idx, tex_id in enumerate(sorted_tex_ids)}
 				
 				for tex_id in sorted_tex_ids:
-					mat_name = f"{tex_id}"
-					mat = bpy.data.materials.new(name=mat_name)
-					mat.use_nodes = True
+					material_name = f"{tex_id}"
+					mat = bpy.data.materials.get(material_name)
+					if mat == None:
+						mat = bpy.data.materials.new(material_name)
+						mat.use_nodes = True
+						mat.name = material_name
+					#me_ob.materials.append(bpy.data.materials.get(material_name))
 				
-				bsdf = mat.node_tree.nodes["Principled BSDF"]
-				bsdf.inputs[0].default_value = (
-					(tex_id * 17 % 23) / 23,
-					(tex_id * 31 % 29) / 29,
-					(tex_id * 47 % 37) / 37,
-					1.0
-				)
+					bsdf = mat.node_tree.nodes["Principled BSDF"]
+					bsdf.inputs[0].default_value = (
+						(tex_id * 17 % 23) / 23,
+						(tex_id * 31 % 29) / 29,
+						(tex_id * 47 % 37) / 37,
+						1.0
+					)
 				
-				me_ob.materials.append(mat)
+					if mat.name not in me_ob.materials:
+						me_ob.materials.append(mat)
 				
-				for face_idx, tex_id in enumerate(face_material_indices):
-					blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
-					me_ob.polygons[face_idx].material_index = blender_mat_index
+					for face_idx, tex_id in enumerate(face_material_indices):
+						blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
+						me_ob.polygons[face_idx].material_index = blender_mat_index
 				
 				obj = bpy.data.objects.new(geoPartName, me_ob)
 				
