@@ -175,13 +175,13 @@ def main(context, file_path):
 				bpy.context.collection.objects.link(obj)
 				bpy.context.view_layer.objects.active = obj
 				
-				empty = bpy.data.objects.new(name="Empty", object_data=None)
-				bpy.context.collection.objects.link(empty)
+				#empty = bpy.data.objects.new(name="Empty", object_data=None)
+				#bpy.context.collection.objects.link(empty)
 				
-				empty.location = (translation)
-				empty.rotation_euler = (math.radians(90), 0, 0)
+				obj.location = (translation)
+				obj.rotation_euler = (math.radians(90), 0, 0)
 				
-				obj.parent = empty
+				#obj.parent = empty
 	
 	print("Finished")
 	elapsed_time = time.time() - start_time
