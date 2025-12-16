@@ -125,15 +125,15 @@ def main(context, file_path, is_traffic, clear_scene):
 				vertexId2 = struct.unpack('<B', f.read(1))[0]
 				#print(f"face: {vertexId0, vertexId1, vertexId2}")
 				uv0 = struct.unpack('<BB', f.read(2))
-				uv0 = [uv0[0]/0xFF, uv0[1]/0xFF]
+				uv0 = [uv0[0]/0xFF, -uv0[1]/0xFF + 1.0]
 				uv1 = struct.unpack('<BB', f.read(2))
-				uv1 = [uv1[0]/0xFF, uv1[1]/0xFF]
+				uv1 = [uv1[0]/0xFF, -uv1[1]/0xFF + 1.0]
 				uv2 = struct.unpack('<BB', f.read(2))
-				uv2 = [uv2[0]/0xFF, uv2[1]/0xFF]
+				uv2 = [uv2[0]/0xFF, -uv2[1]/0xFF + 1.0]
 				#print(f"uv: {uv0, uv1, uv2}")
 			
 				faces.append((vertexId2, vertexId1, vertexId0))
-				loop_uvs.extend([uv0, uv1, uv2])
+				loop_uvs.extend([uv2, uv1, uv0])
 				face_material_indices.append(textureIndex)
 				used_texture_ids.add(textureIndex)
 				
@@ -144,6 +144,9 @@ def main(context, file_path, is_traffic, clear_scene):
 				me_ob = bpy.data.meshes.new(geoPartName)
 				#obj = bpy.data.objects.new(geoPartName, me_ob)
 				me_ob.from_pydata(vertices, [], faces)
+				
+				values = [True] * len(me_ob.polygons)
+				me_ob.polygons.foreach_set("use_smooth", values)
 				
 				if has_some_normal_data:
 					me_ob.validate(clean_customdata=False)
