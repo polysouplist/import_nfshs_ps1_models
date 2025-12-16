@@ -3,12 +3,6 @@
 # Blender Need for Speed High Stakes (1999) PS1 importer Add-on
 # Add-on developed by PolySoupList
 
-
-## TO DO
-"""
-"""
-
-
 bl_info = {
     "name": "Import Need for Speed High Stakes 1999 PS1 models format (.geo)",
     "description": "Import meshes files from Need for Speed High Stakes 1999 PS1",
@@ -22,7 +16,6 @@ bl_info = {
     "support": "COMMUNITY",
     "category": "Import-Export"}
 
-
 import bpy
 from bpy.types import (
 	Operator,
@@ -31,20 +24,16 @@ from bpy.types import (
 from bpy.props import (
 	StringProperty,
 	BoolProperty,
-	EnumProperty,
 	CollectionProperty
 )
 from bpy_extras.io_utils import (
 	ImportHelper,
-	orientation_helper,
-	axis_conversion,
 )
 import bmesh
 import math
 import os
 import time
 import struct
-from pathlib import Path
 
 
 def main(context, file_path, is_traffic, clear_scene):
@@ -184,8 +173,9 @@ def main(context, file_path, is_traffic, clear_scene):
 						me_ob.materials.append(mat)
 				
 					for face_idx, tex_id in enumerate(face_material_indices):
-						blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
-						me_ob.polygons[face_idx].material_index = blender_mat_index
+						if face_idx < len(me_ob.polygons):
+							blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
+							me_ob.polygons[face_idx].material_index = blender_mat_index
 				
 				obj = bpy.data.objects.new(geoPartName, me_ob)
 				
@@ -526,4 +516,3 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
-
