@@ -4,12 +4,12 @@
 # Add-on developed by PolySoupList
 
 bl_info = {
-    "name": "Import Need for Speed High Stakes 1999 PS1 models format (.geo)",
-    "description": "Import meshes files from Need for Speed High Stakes 1999 PS1",
+    "name": "Import Need for Speed High Stakes (1999) PS1 models format (.geo)",
+    "description": "Import meshes files from Need for Speed High Stakes (1999) PS1",
     "author": "PolySoupList",
-    "version": (0, 0, 3),
+    "version": (0, 0, 4),
     "blender": (3, 6, 23),
-    "location": "File > Import > Need for Speed High Stakes 1999 PS1 (.geo)",
+    "location": "File > Import > Need for Speed High Stakes (1999) PS1 (.geo)",
     "warning": "",
     "wiki_url": "",
     "tracker_url": "",
@@ -120,7 +120,7 @@ def main(context, file_path, is_traffic, clear_scene):
 				uv2 = struct.unpack('<BB', f.read(2))
 				uv2 = [uv2[0]/0xFF, -uv2[1]/0xFF + 1.0]
 				#print(f"uv: {uv0, uv1, uv2}")
-			
+				
 				faces.append((vertexId2, vertexId1, vertexId0))
 				loop_uvs.extend([uv2, uv1, uv0])
 				face_material_indices.append(textureIndex)
@@ -138,7 +138,6 @@ def main(context, file_path, is_traffic, clear_scene):
 				me_ob.polygons.foreach_set("use_smooth", values)
 				
 				if has_some_normal_data:
-					me_ob.validate(clean_customdata=False)
 					me_ob.normals_split_custom_set_from_vertices(normal_data)
 					me_ob.use_auto_smooth = True
 				else:
@@ -173,9 +172,8 @@ def main(context, file_path, is_traffic, clear_scene):
 						me_ob.materials.append(mat)
 				
 					for face_idx, tex_id in enumerate(face_material_indices):
-						if face_idx < len(me_ob.polygons):
-							blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
-							me_ob.polygons[face_idx].material_index = blender_mat_index
+						blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
+						me_ob.polygons[face_idx].material_index = blender_mat_index
 				
 				obj = bpy.data.objects.new(geoPartName, me_ob)
 				
@@ -415,6 +413,14 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 			
 			print("Importing %d files" % len(files_path))
 			
+			if self.clear_scene == True:
+				print("Clearing initial scene...")
+				clearScene(context)
+				print("Setting 'clear_scene' to False now...")
+				self.clear_scene = False
+			
+			print()
+			
 			for file_path in files_path:
 				status = main(context, file_path, self.is_traffic, self.clear_scene)
 				
@@ -481,7 +487,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 def menu_func_import(self, context):
 	pcoll = preview_collections["main"]
 	my_icon = pcoll["my_icon"]
-	self.layout.operator(ImportNFSHSPS1.bl_idname, text="Need for Speed High Stakes 1999 PS1 (.geo)", icon_value=my_icon.icon_id)
+	self.layout.operator(ImportNFSHSPS1.bl_idname, text="Need for Speed High Stakes (1999) PS1 (.geo)", icon_value=my_icon.icon_id)
 
 
 classes = (
