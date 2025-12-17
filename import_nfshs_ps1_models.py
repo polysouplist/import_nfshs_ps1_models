@@ -75,19 +75,19 @@ def main(context, file_path, is_traffic, clear_scene):
 			#print(f"numFacet: {numFacet}")
 			
 			translation = struct.unpack('<iii', f.read(12))
-			translation = [-translation[0]/0x7FFF, -translation[2]/0x7FFF, translation[1]/0x7FFF]
+			translation = [translation[0]/0x7FFF, -translation[2]/0x7FFF, translation[1]/0x7FFF]
 			#print(f"translation: {translation}")
 			
 			if partIdx == 39:
-				translation[0] -= -0x7AE/0x7FFF
+				translation[0] -= 0x7AE/0x7FFF
 			elif partIdx == 40:
-				translation[0] += -0x7AE/0x7FFF
+				translation[0] += 0x7AE/0x7FFF
 			
 			unknown = f.read(12)
 			
 			for i in range (numVertex):
 				vertex = struct.unpack('<hhh', f.read(6))
-				vertex = [-vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
+				vertex = [vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
 				vertices.append ((vertex[0], vertex[1], vertex[2]))
 				#print(f"vertex: {vertex[0], vertex[1], vertex[2]}")
 			if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
@@ -98,7 +98,7 @@ def main(context, file_path, is_traffic, clear_scene):
 					has_some_normal_data = True
 					for i in range (numVertex):
 						Nvertex = struct.unpack('<hhh', f.read(6))
-						Nvertex = [-Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
+						Nvertex = [Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
 						normal_data.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
 						#print(f"Nvertex: {Nvertex[0], Nvertex[1], Nvertex[2]}")
 					if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
@@ -114,15 +114,15 @@ def main(context, file_path, is_traffic, clear_scene):
 				vertexId2 = struct.unpack('<B', f.read(1))[0]
 				#print(f"face: {vertexId0, vertexId1, vertexId2}")
 				uv0 = struct.unpack('<BB', f.read(2))
-				uv0 = [uv0[0]/0xFF, -uv0[1]/0xFF + 1.0]
+				uv0 = [uv0[0]/0xFF, 1.0 - uv0[1]/0xFF]
 				uv1 = struct.unpack('<BB', f.read(2))
-				uv1 = [uv1[0]/0xFF, -uv1[1]/0xFF + 1.0]
+				uv1 = [uv1[0]/0xFF, 1.0 - uv1[1]/0xFF]
 				uv2 = struct.unpack('<BB', f.read(2))
-				uv2 = [uv2[0]/0xFF, -uv2[1]/0xFF + 1.0]
+				uv2 = [uv2[0]/0xFF, 1.0 - uv2[1]/0xFF]
 				#print(f"uv: {uv0, uv1, uv2}")
 				
-				faces.append((vertexId2, vertexId1, vertexId0))
-				loop_uvs.extend([uv2, uv1, uv0])
+				faces.append((vertexId0, vertexId1, vertexId2))
+				loop_uvs.extend([uv0, uv1, uv2])
 				face_material_indices.append(textureIndex)
 				used_texture_ids.add(textureIndex)
 				
@@ -131,7 +131,7 @@ def main(context, file_path, is_traffic, clear_scene):
 				#Building Mesh
 				#==================================================================================================
 				me_ob = bpy.data.meshes.new(geoPartName)
-				#obj = bpy.data.objects.new(geoPartName, me_ob)
+				obj = bpy.data.objects.new(geoPartName, me_ob)
 				me_ob.from_pydata(vertices, [], faces)
 				
 				values = [True] * len(me_ob.polygons)
@@ -158,8 +158,7 @@ def main(context, file_path, is_traffic, clear_scene):
 						mat = bpy.data.materials.new(material_name)
 						mat.use_nodes = True
 						mat.name = material_name
-					#me_ob.materials.append(bpy.data.materials.get(material_name))
-				
+					
 					bsdf = mat.node_tree.nodes["Principled BSDF"]
 					bsdf.inputs[0].default_value = (
 						(tex_id * 17 % 23) / 23,
@@ -167,28 +166,19 @@ def main(context, file_path, is_traffic, clear_scene):
 						(tex_id * 47 % 37) / 37,
 						1.0
 					)
-				
+					
 					if mat.name not in me_ob.materials:
 						me_ob.materials.append(mat)
-				
+					
 					for face_idx, tex_id in enumerate(face_material_indices):
 						blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
 						me_ob.polygons[face_idx].material_index = blender_mat_index
 				
-				obj = bpy.data.objects.new(geoPartName, me_ob)
-				
 				# Link to scene
-				#bpy.context.collection.objects.link(obj)
 				main_collection.objects.link(obj)
 				bpy.context.view_layer.objects.active = obj
-				
-				#empty = bpy.data.objects.new(name="Empty", object_data=None)
-				#bpy.context.collection.objects.link(empty)
-				
 				obj.location = (translation)
 				obj.rotation_euler = (math.radians(90), 0, 0)
-				
-				#obj.parent = empty
 	
 	print("Finished")
 	elapsed_time = time.time() - start_time
@@ -522,3 +512,4 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
+
