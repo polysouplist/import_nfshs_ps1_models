@@ -203,7 +203,7 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 						mat.use_nodes = True
 						mat.name = material_name
 					
-					bsdf = mat.node_tree.nodes["Principled BSDF"]
+					bsdf = mat.node_tree.nodes[0]
 					bsdf.inputs[0].default_value = (
 						(tex_id * 17 % 23) / 23,
 						(tex_id * 31 % 29) / 29,
