@@ -1,6 +1,6 @@
 # import_nfshs_ps1_models
+[![Blender](https://img.shields.io/badge/Blender-v3.6_LTS-blue?logo=blender&logoColor=white)](https://www.blender.org/download/lts/3-6/#versions "Download Blender")
 
-## Work in progress!<br/>
 ## Installation
 Go to `Edit > Preferences > Addons > Install` and either select .zip file or the unzipped `import_nfshs_ps1_models.py` file.
 
