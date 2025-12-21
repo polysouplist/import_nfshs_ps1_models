@@ -36,7 +36,7 @@ import time
 import struct
 
 
-def main(context, file_path, is_traffic, clear_scene):
+def main(context, file_path, is_traffic, clear_scene, global_matrix):
 	if bpy.ops.object.mode_set.poll():
 		bpy.ops.object.mode_set(mode='OBJECT')
 	
@@ -44,6 +44,12 @@ def main(context, file_path, is_traffic, clear_scene):
 		print("Clearing scene...")
 		clearScene(context)
 	
+	status = import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, global_matrix)
+	
+	return status
+
+
+def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 	start_time = time.time()
 	
 	main_collection_name = os.path.basename(file_path)
@@ -74,7 +80,7 @@ def main(context, file_path, is_traffic, clear_scene):
 			numFacet = struct.unpack('<H', f.read(0x2))[0]
 			
 			translation = struct.unpack('<3i', f.read(0xC))
-			translation = [translation[0]/0x7FFF, -translation[2]/0x7FFF, translation[1]/0x7FFF]
+			translation = [translation[0]/0x7FFF, translation[1]/0x7FFF, translation[2]/0x7FFF]
 			
 			if partIdx == 39:
 				translation[0] -= 0x7AE/0x7FFF
@@ -210,11 +216,24 @@ def main(context, file_path, is_traffic, clear_scene):
 						me_ob.polygons[face_idx].material_index = blender_mat_index
 				
 				# Link to scene
+				obj["object_index"] = [partIdx]
 				obj["object_unk0"] = [int_to_id(i) for i in object_unk0]
 				main_collection.objects.link(obj)
 				bpy.context.view_layer.objects.active = obj
-				obj.location = (translation)
-				obj.rotation_euler = (math.radians(90), 0, 0)
+				obj.matrix_world = m @ Matrix.Translation(translation)
+	
+	## Adjusting scene
+	for window in bpy.context.window_manager.windows:
+		for area in window.screen.areas:
+			if area.type == 'VIEW_3D':
+				for space in area.spaces:
+					if space.type == 'VIEW_3D':
+						space.shading.type = 'MATERIAL'
+				region = next(region for region in area.regions if region.type == 'WINDOW')
+				override = bpy.context.copy()
+				override['area'] = area
+				override['region'] = region
+				bpy.ops.view3d.view_all(override, use_all_regions=False, center=False)
 	
 	print("Finished")
 	elapsed_time = time.time() - start_time
