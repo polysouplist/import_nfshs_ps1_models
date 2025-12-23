@@ -7,7 +7,7 @@ bl_info = {
     "name": "Import Need for Speed High Stakes (1999) PS1 models format (.geo)",
     "description": "Import meshes files from Need for Speed High Stakes (1999) PS1",
     "author": "PolySoupList",
-    "version": (0, 0, 5),
+    "version": (0, 0, 6),
     "blender": (3, 6, 23),
     "location": "File > Import > Need for Speed High Stakes (1999) PS1 (.geo)",
     "warning": "",
@@ -67,27 +67,23 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 		
 		f.read(0x168)
 		
-		for partIdx in range(57):
+		for index in range(57):
 			vertices = []
 			normals = []
+			flags = []
+			textures = []
 			faces = []
 			loop_uvs = []
-			face_material_indices = []
-			flags = []
-			used_texture_ids = set()
 			
-			geoPartName = get_geoPartNames(partIdx)
-			
+			geoPartName = get_geoPartNames(index)
 			numVertex = struct.unpack('<H', f.read(0x2))[0]
-			
 			numFacet = struct.unpack('<H', f.read(0x2))[0]
-			
 			translation = struct.unpack('<3i', f.read(0xC))
 			translation = [translation[0]/0x7FFF, translation[1]/0x7FFF, translation[2]/0x7FFF]
 			
-			if partIdx == 39:
+			if index == 39:
 				translation[0] -= 0x7AE/0x7FFF
-			elif partIdx == 40:
+			elif index == 40:
 				translation[0] += 0x7AE/0x7FFF
 			
 			object_unk0 = struct.unpack('<3I', f.read(0xC))
@@ -96,16 +92,16 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 				vertex = struct.unpack('<3h', f.read(0x6))
 				vertex = [vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
 				vertices.append ((vertex[0], vertex[1], vertex[2]))
-			if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
+			if numVertex % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
 				padding = f.read(0x2)
 			
 			if is_traffic == False:
-				if get_R3DCar_ObjectInfo(partIdx)[1] & 1 != 0:
+				if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
 					for i in range (numVertex):
 						Nvertex = struct.unpack('<3h', f.read(0x6))
 						Nvertex = [Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
 						normals.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
-					if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
+					if numVertex % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
 						padding = f.read(0x2)
 			
 			for i in range(numFacet):
@@ -121,12 +117,11 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 				uv2 = struct.unpack('<2B', f.read(0x2))
 				uv2 = [uv2[0]/0xFF, 1.0 - uv2[1]/0xFF]
 				
+				flags.append(flag)
+				textures.append(textureIndex)
 				faces.append((vertexId0, vertexId1, vertexId2))
 				loop_uvs.extend([uv0, uv1, uv2])
-				face_material_indices.append(textureIndex)
-				used_texture_ids.add(textureIndex)
-				flags.append(flag)
-				
+			
 			if numVertex > 0:
 				#==================================================================================================
 				#Building Mesh
@@ -157,6 +152,8 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 						if has_some_normal_data == False:
 							me_ob.create_normals_split()
 						has_some_normal_data = True
+					else:
+						normal_data.append([i, (0.0, 0.0, 0.0)])
 				
 				for i, face in enumerate(faces):
 					face_vertices = (BMVert_dictionary[face[0]][0], BMVert_dictionary[face[1]][0], BMVert_dictionary[face[2]][0])
@@ -165,11 +162,33 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 					except:
 						pass
 					if BMFace.index != -1:
+						BMFace0 = BMFace
 						BMFace = BMFace.copy(verts=False, edges=False)
+						
+						original_face_indices = [vert.index for vert in BMFace.verts]
+						new_face_indices = [vert.index for vert in face_vertices]
+						same_winding_faces_as_original = [original_face_indices[-n:] + original_face_indices[:-n] for n in range(0, len(original_face_indices))]
+						if new_face_indices not in same_winding_faces_as_original:
+							BMFace.normal_flip()
+					
 					BMFace.index = i
 					BMFace.smooth = True
 					BMFace[flag] = flags[i]
 					
+					material_name = str(textures[i])
+					mat = bpy.data.materials.get(material_name)
+					if mat == None:
+						mat = bpy.data.materials.new(material_name)
+						mat.use_nodes = True
+						mat.name = material_name
+						
+						if mat.node_tree.nodes[0].bl_idname != "ShaderNodeOutputMaterial":
+							mat.node_tree.nodes[0].name = material_name
+					
+					if mat.name not in me_ob.materials:
+						me_ob.materials.append(mat)
+					
+					BMFace.material_index = me_ob.materials.find(mat.name)
 				
 				#Finish up, write the bmesh back to the mesh
 				bm.to_mesh(me_ob)
@@ -191,35 +210,8 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 					uv_layer = me_ob.uv_layers.new(name=uvName)
 					uv_layer.data.foreach_set("uv", [coord for uv in loop_uvs for coord in uv])
 				
-				# ------------------- Create Materials -------------------
-				sorted_tex_ids = sorted(used_texture_ids)
-				tex_id_to_mat_index = {tex_id: idx for idx, tex_id in enumerate(sorted_tex_ids)}
-				
-				for tex_id in sorted_tex_ids:
-					material_name = f"{tex_id}"
-					mat = bpy.data.materials.get(material_name)
-					if mat == None:
-						mat = bpy.data.materials.new(material_name)
-						mat.use_nodes = True
-						mat.name = material_name
-					
-					bsdf = mat.node_tree.nodes[0]
-					bsdf.inputs[0].default_value = (
-						(tex_id * 17 % 23) / 23,
-						(tex_id * 31 % 29) / 29,
-						(tex_id * 47 % 37) / 37,
-						1.0
-					)
-					
-					if mat.name not in me_ob.materials:
-						me_ob.materials.append(mat)
-					
-					for face_idx, tex_id in enumerate(face_material_indices):
-						blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
-						me_ob.polygons[face_idx].material_index = blender_mat_index
-				
 				# Link to scene
-				obj["object_index"] = [partIdx]
+				obj["object_index"] = [index]
 				obj["object_unk0"] = [int_to_id(i) for i in object_unk0]
 				main_collection.objects.link(obj)
 				bpy.context.view_layer.objects.active = obj
@@ -244,7 +236,7 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 	return {'FINISHED'}
 
 
-def get_R3DCar_ObjectInfo(partIdx):
+def get_R3DCar_ObjectInfo(index):
     R3DCar_ObjectInfo = {0: [0x00, 0x49, 0x00, 0x01, 0x00, 0x00],
                          1: [0x00, 0x00, 0x00, 0x00, 0x01, 0x00],
                          2: [0x20, 0x02, 0x01, 0x01, 0x00, 0x00],
@@ -303,10 +295,10 @@ def get_R3DCar_ObjectInfo(partIdx):
                          55: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00],
                          56: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00]}
     
-    return R3DCar_ObjectInfo[partIdx]
+    return R3DCar_ObjectInfo[index]
 
 
-def get_geoPartNames(partIdx):
+def get_geoPartNames(index):
     geoPartNames = {0: "Body Medium",
                     1: "Body Low",
                     2: "Body Undertray",
@@ -365,7 +357,7 @@ def get_geoPartNames(partIdx):
                     55: "Rear Right Wheel",
                     56: "Rear Left Wheel"}
     
-    return geoPartNames[partIdx]
+    return geoPartNames[index]
 
 
 def int_to_id(id):
