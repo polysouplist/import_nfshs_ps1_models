@@ -596,4 +596,3 @@ def unregister(): # OK
 
 if __name__ == "__main__":
 	register()
-
