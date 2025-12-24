@@ -209,8 +209,7 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 					uv_layer = me_ob.uv_layers.new(name=uvName)
 					uv_layer.data.foreach_set("uv", [coord for uv in loop_uvs for coord in uv])
 				
-				# Link to scene
-				obj["object_index"] = [index]
+				obj["object_index"] = index
 				obj["object_unk0"] = [int_to_id(i) for i in object_unk0]
 				main_collection.objects.link(obj)
 				bpy.context.view_layer.objects.active = obj
