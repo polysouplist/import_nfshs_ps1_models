@@ -146,7 +146,7 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 					
 					if normals:
 						normal = normals[i]
-						BMVert.normal = normals[i]
+						BMVert.normal = normal
 						normal_data.append([i, normal])
 						if has_some_normal_data == False:
 							me_ob.create_normals_split()
