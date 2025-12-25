@@ -7,7 +7,7 @@ bl_info = {
     "name": "Import Need for Speed High Stakes (1999) PS1 models format (.geo)",
     "description": "Import meshes files from Need for Speed High Stakes (1999) PS1",
     "author": "PolySoupList",
-    "version": (0, 0, 6),
+    "version": (0, 0, 7),
     "blender": (3, 6, 23),
     "location": "File > Import > Need for Speed High Stakes (1999) PS1 (.geo)",
     "warning": "",
@@ -64,7 +64,9 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 	with open(file_path, "rb") as f:
 		header_unk0 = struct.unpack('<57I', f.read(0xE4))
 		main_collection["header_unk0"] = [int_to_id(i) for i in header_unk0]
-		f.read(0x168)
+		
+		header_unk1 = struct.unpack('<90I', f.read(0x168))
+		main_collection["header_unk1"] = [int_to_id(i) for i in header_unk1]
 		
 		for index in range(57):
 			vertices = []
