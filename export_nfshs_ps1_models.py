@@ -1,5 +1,34 @@
+#-*- coding:utf-8 -*-
+
+# Blender Need for Speed High Stakes (1999) PS1 exporter Add-on
+# Add-on developed by PolySoupList
+
+
+bl_info = {
+	"name": "Export to Need for Speed High Stakes (1999) PS1 models format (.geo)",
+	"description": "Save objects as Need for Speed High Stakes (1999) PS1 files",
+	"author": "PolySoupList",
+	"version": (1, 0, 0),
+	"blender": (3, 6, 23),
+	"location": "File > Export > Need for Speed High Stakes (1999) PS1 (.geo)",
+	"warning": "",
+	"wiki_url": "",
+	"tracker_url": "",
+	"support": "COMMUNITY",
+	"category": "Import-Export"}
+
+
 import bpy
 from bpy.types import Operator
+from bpy.props import (
+	StringProperty,
+	BoolProperty
+)
+from bpy_extras.io_utils import (
+	ExportHelper,
+	orientation_helper,
+	axis_conversion,
+)
 import bmesh
 import math
 from mathutils import Matrix
@@ -7,18 +36,14 @@ import os
 import time
 import struct
 import numpy as np
-from bpy_extras.io_utils import (
-	orientation_helper,
-	axis_conversion,
-)
 
 
-def export_nfshs_ps1_models(file_path, is_traffic):
+def main(context, export_path, export_traffic, m):
 	os.system('cls')
+	start_time = time.time()
 	
-	main_collection = bpy.context.scene.collection
-	global_matrix = axis_conversion(from_forward='Z', from_up='Y', to_forward='-Y', to_up='Z').to_4x4()
-	m = global_matrix
+	if bpy.ops.object.mode_set.poll():
+		bpy.ops.object.mode_set(mode='OBJECT')
 	
 	for main_collection in bpy.context.scene.collection.children:
 		is_hidden = bpy.context.view_layer.layer_collection.children.get(main_collection.name).hide_viewport
@@ -29,11 +54,16 @@ def export_nfshs_ps1_models(file_path, is_traffic):
 			print("")
 			continue
 		
+		file_path = os.path.join(export_path, main_collection.name)
+		os.makedirs(os.path.dirname(file_path), exist_ok = True)
+		
+		print("Reading scene data for main collection %s..." % (main_collection.name))
+		
 		objects = main_collection.objects
 		object_index = -1
 		
-		with open(file_path, 'wb') as f:
-			if is_traffic == False:
+		with open(file_path, "wb") as f:
+			if export_traffic == False:
 				if "header_unk0" in main_collection:
 					header_unk0 = [id_to_int(i) for i in main_collection["header_unk0"]]
 					f.write(struct.pack('<57I', *header_unk0))
@@ -94,9 +124,9 @@ def export_nfshs_ps1_models(file_path, is_traffic):
 								  round(vert.co[2]*0x7F)]
 						f.write(struct.pack('<3h', *vertex))
 					if len(mesh.vertices) % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
-						f.write(b'\x00\x00')
+						f.write(b'\x00' * 0x2)
 					
-					if is_traffic == False:
+					if export_traffic == False:
 						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
 							for vert in mesh.vertices:
 								Nvertex = [round(vert.normal[0]*0x7F),
@@ -104,7 +134,7 @@ def export_nfshs_ps1_models(file_path, is_traffic):
 										   round(vert.normal[2]*0x7F)]
 								f.write(struct.pack('<3h', *Nvertex))
 							if len(mesh.vertices) % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
-								f.write(b'\x00\x00')
+								f.write(b'\x00' * 0x2)
 					
 					uv_layer = mesh.uv_layers.active.data
 					flags = mesh.attributes.get("flag")
@@ -137,68 +167,11 @@ def export_nfshs_ps1_models(file_path, is_traffic):
 					bm.free()
 				else:
 					f.write(b'\x00' * 0x1C)
-
-
-def get_geoPartNames(index):
-	geoPartNames = {0: "Body Medium",
-					1: "Body Low",
-					2: "Body Undertray",
-					3: "Wheel Wells",
-					4: "Wheel Squares (unknown LOD)",
-					5: "Wheel Squares (A little bigger)",
-					6: "Unknown Invisible??",
-					7: "Unknown Invisible??",
-					8: "Spoiler Original",
-					9: "Spoiler Uprights",
-					10: "Spoiler Upgraded",
-					11: "Spoiler Upgraded Uprights ",
-					12: "Fog Lights and Rear bumper Top",
-					13: "Fog Lights and Rear bumper TopR",
-					14: "Wing Mirror Attachment Points",
-					15: "Wheel Attachment Points",
-					16: "Brake Light Quads",
-					17: "Unknown Invisible",
-					18: "Unknown Rear Light tris",
-					19: "Rear Inner Light Quads",
-					20: "Rear Inner Light Quads rotated",
-					21: "Rear Inner Light Tris",
-					22: "Front Light quads",
-					23: "Bigger Front Light quads",
-					24: "Front Light triangles",
-					25: "Rear Main Light Quads",
-					26: "Rear Main Light Quads dup",
-					27: "Rear Main Light Tris",
-					28: "Unknown Invisible",
-					29: "Unknown Invisible",
-					30: "Front Headlight light Pos",
-					31: "Logo and Rear Numberplate",
-					32: "Exhaust Tips",
-					33: "Low LOD Exhaust Tips",
-					34: "Mid Body F/R Triangles",
-					35: "Interior Cutoff + Driver Pos",
-					36: "Unknown Invisible",
-					37: "Unknown Invisible",
-					38: "Unknown Invisible",
-					39: "Unknown Invisible",
-					40: "Unknown Invisible",
-					41: "Right Body High",
-					42: "Left Body High",
-					43: "Right Wing Mirror",
-					44: "Left Wing Mirror",
-					45: "Front Right Light Bucket",
-					46: "Front Left Light bBucket",
-					47: "Front Right Wheel",
-					48: "Front Left Wheel",
-					49: "Unknown Invisible",
-					50: "Unknown Invisible",
-					51: "Front Right Tire",
-					52: "Front Left Tire",
-					53: "Unknown Invisible",
-					54: "Unknown Invisible",
-					55: "Rear Right Wheel",
-					56: "Rear Left Wheel"}
 	
-	return geoPartNames[index]
+	print("Finished")
+	elapsed_time = time.time() - start_time
+	print("Elapsed time: %.4fs" % elapsed_time)
+	return {'FINISHED'}
 
 
 def get_R3DCar_ObjectInfo(index):
@@ -272,7 +245,122 @@ def id_to_int(id):
 	return int(id, 16)
 
 
-export_nfshs_ps1_models(
-	file_path = r"C:\Users\user\Desktop\your_geo.geo",
-	is_traffic = False
+@orientation_helper(axis_forward='-Y', axis_up='Z')
+class ExportNFSHSPS1(Operator, ExportHelper):
+	"""Export as a Need for Speed High Stakes (1999) PS1 Model file"""
+	bl_idname = "export_nfshsps1.data"
+	bl_label = "Export to folder"
+	bl_options = {'PRESET'}
+
+	filename_ext = ""
+	use_filter_folder = True
+
+	filter_glob: StringProperty(
+			options={'HIDDEN'},
+			default="*.geo",
+			maxlen=255,
+			)
+	
+	export_traffic: BoolProperty(
+			name="Export traffic",
+			description="Check in order to export a traffic vehicle",
+			default=False,
+		)
+
+	
+	def execute(self, context):
+		userpath = self.properties.filepath
+		if os.path.isfile(userpath):
+			self.report({"ERROR"}, "Please select a directory not a file\n" + userpath)
+			return {"CANCELLED"}
+		
+		global_matrix = axis_conversion(from_forward='Z', from_up='Y', to_forward=self.axis_forward, to_up=self.axis_up).to_4x4()
+		
+		status = main(context, self.filepath, self.export_traffic, global_matrix)
+		
+		if status == {"CANCELLED"}:
+			self.report({"ERROR"}, "Exporting has been cancelled. Check the system console for information.")
+		return status
+	
+	def draw(self, context):
+		layout = self.layout
+		layout.use_property_split = True
+		layout.use_property_decorate = False  # No animation.
+		
+		sfile = context.space_data
+		operator = sfile.active_operator
+		
+		##
+		box = layout.box()
+		split = box.split(factor=0.75)
+		col = split.column(align=True)
+		col.label(text="Settings", icon="SETTINGS")
+		
+		box.prop(operator, "export_traffic")
+		
+		##
+		box = layout.box()
+		split = box.split(factor=0.75)
+		col = split.column(align=True)
+		col.label(text="Blender orientation", icon="OBJECT_DATA")
+		
+		row = box.row(align=True)
+		row.label(text="Forward axis")
+		row.use_property_split = False
+		row.prop_enum(operator, "axis_forward", 'X', text='X')
+		row.prop_enum(operator, "axis_forward", 'Y', text='Y')
+		row.prop_enum(operator, "axis_forward", 'Z', text='Z')
+		row.prop_enum(operator, "axis_forward", '-X', text='-X')
+		row.prop_enum(operator, "axis_forward", '-Y', text='-Y')
+		row.prop_enum(operator, "axis_forward", '-Z', text='-Z')
+		
+		row = box.row(align=True)
+		row.label(text="Up axis")
+		row.use_property_split = False
+		row.prop_enum(operator, "axis_up", 'X', text='X')
+		row.prop_enum(operator, "axis_up", 'Y', text='Y')
+		row.prop_enum(operator, "axis_up", 'Z', text='Z')
+		row.prop_enum(operator, "axis_up", '-X', text='-X')
+		row.prop_enum(operator, "axis_up", '-Y', text='-Y')
+		row.prop_enum(operator, "axis_up", '-Z', text='-Z')
+
+
+def menu_func_export(self, context):
+	pcoll = preview_collections["main"]
+	my_icon = pcoll["my_icon"]
+	self.layout.operator(ExportNFSHSPS1.bl_idname, text="Need for Speed High Stakes (1999) PS1 (.geo)", icon_value=my_icon.icon_id)
+
+
+classes = (
+		ExportNFSHSPS1,
 )
+
+preview_collections = {}
+
+
+def register():
+	import bpy.utils.previews
+	pcoll = bpy.utils.previews.new()
+	
+	my_icons_dir = os.path.join(os.path.dirname(__file__), "polly_icons")
+	pcoll.load("my_icon", os.path.join(my_icons_dir, "nfshs_icon.png"), 'IMAGE')
+
+	preview_collections["main"] = pcoll
+	
+	for cls in classes:
+		bpy.utils.register_class(cls)
+	bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
+
+
+def unregister():
+	for pcoll in preview_collections.values():
+		bpy.utils.previews.remove(pcoll)
+	preview_collections.clear()
+	
+	for cls in classes:
+		bpy.utils.unregister_class(cls)
+	bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
+
+
+if __name__ == "__main__":
+	register()
